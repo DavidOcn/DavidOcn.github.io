@@ -1,0 +1,63 @@
+###Object-C runtime
+Object-C 是一门动态语言，基于一个 C 运行时系统。这套系统提供并支持 OC 的动态类型、动态绑定、动态加载。
+
+####动态类型
+在运行时再决定对象的类型。这类动态特性在日常应用中很常见，其实就是 id/instancetype，运行时系统通过 -isMenberOfClass: 和 -isKindOfClass:，来判断对象的类型，确定了之后，可以安全的进行强制转换，继续之后的工作。
+
+```
+id obj = someInstance;  
+if ([obj isKindOfClass:someClass])  
+{
+    someClass *classSpecifiedInstance = (someClass *)obj;
+    // Do Something to classSpecifiedInstance which now is an instance of someClass
+    //...
+}
+```
+
+####动态绑定
+基于动态类型，在某个实例对象被确定后，其类型便被确定了。该对象对应的属性和响应的消息也被完全确定，这就是动态绑定。由于OC的动态特性，在OC中其实很少提及“函数”的概念，传统的函数一般在编译时就已经把参数信息和函数实现打包到编译后的源码中了，而在OC中最常使用的是消息机制。调用一个实例的方法，所做的是向该实例的指针发送消息，实例在收到消息后，从自身的实现中寻找响应这条消息的方法。
+
+动态绑定所做的，即是在实例所属类确定后，将某些属性和相应的方法绑定到实例上。这里所指的属性和方法当然包括了原来没有在类中实现的，而是在运行时才需要的新加入的实现。在Cocoa层，我们一般向一个NSObject对象发送-respondsToSelector:或者-instancesRespondToSelector:等来确定对象是否可以对某个SEL做出响应，而在OC消息转发机制被触发之前，对应的类的+resolveClassMethod:和+resolveInstanceMethod:将会被调用，在此时有机会动态地向类或者实例添加新的方法，也即类的实现是可以动态绑定的
+
+```
+void dynamicMethodIMP(id self, SEL _cmd)  
+{
+    // implementation ....
+}
+
+
++ (BOOL) resolveInstanceMethod:(SEL)aSEL
+{ 
+    if (aSEL == @selector(resolveThisMethodDynamically)) {
+        //向[self class]中新加入返回为void的实现，SEL名字为aSEL，实现的具体内容为dynamicMethodIMP class_addMethod([self class], aSEL, (IMP) dynamicMethodIMP, “v@:”);
+        return YES;
+    }
+    return [super resolveInstanceMethod:aSel];
+} 
+```
+####动态加载
+根据需求加载所需要的资源，这点很容易理解，对于iOS开发来说，基本就是根据不同的机型做适配。最经典的例子就是在Retina设备上加载@2x的图片，而在老一些的普通屏设备上加载原图。
+
+###Object-C runtime 实际开发中的应用
+Objective-C还有一些高级或者说更底层的运行时特性，在一般的Cocoa开发中较为少见，基本被运用与编写OC和其他语言的接口上。但是如果有所了解并使用得当的话，在Cocoa开发中往往可以轻易解决一些棘手问题。比如：
+
+* 动态的实现对属性的增删。例如 MJextension 就是通过 runtime 来实现属性的动态添加的
+* 黑魔法->交换方法的实现（消息转发），可以减少代码量，不过会加大代码的维护难度
+* 获取属性列表，简单粗暴的获取属性列表
+
+```
+Ivar *ivars = class_copyIvarList([PYPerson class], &count);
+```
+* 获取属性的类型
+
+ ```
+ -isMenberOfClass
+ -isKindOfClass
+ ```
+ * 执行方法
+ 
+ ```
+ - (id)performSelector:(SEL)aSelector;
+- (id)performSelector:(SEL)aSelector withObject:(id)object;
+- (id)performSelector:(SEL)aSelector withObject:(id)object1 withObject:(id)object2;
+ ```
